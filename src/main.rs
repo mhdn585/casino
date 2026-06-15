@@ -18,7 +18,7 @@ fn main() {
         let choice = ui::show_main_menu();
         
         if choice == 0 {
-            ui::show_message(&format!("Gracias por jugar. Saldo final: ${}", player.get_balance()), "amarillo");
+            ui::show_message(&format!("Gracias por jugar. Saldo final: ${:.2}", player.get_balance()), "amarillo");
             player.save();
             break;
         }
@@ -69,7 +69,7 @@ fn main() {
         
         let result = roulette.spin();
         
-        let win_amount = bet.calculate_win(&result);
+        let win_amount = bet.calculate_win(&result, &roulette);
         
         if win_amount > 0.0 {
             player.add_winnings(win_amount);
@@ -79,6 +79,8 @@ fn main() {
         }
         
         ui::show_message(&format!("Saldo actual: ${:.2}", player.get_balance()), "blanco");
+        
+        player.save();
         
         ui::wait_for_enter();
     }

@@ -1,8 +1,25 @@
 use rand::Rng;
 
+#[derive(Debug, Clone, PartialEq)]
+pub enum Color {
+    Verde,
+    Rojo,
+    Negro,
+}
+
+impl std::fmt::Display for Color {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Color::Verde => write!(f, "verde"),
+            Color::Rojo => write!(f, "rojo"),
+            Color::Negro => write!(f, "negro"),
+        }
+    }
+}
+
 pub struct RouletteWheel {
     numbers: Vec<u32>,
-    colors: Vec<&'static str>,
+    colors: Vec<Color>,
 }
 
 impl RouletteWheel {
@@ -13,10 +30,13 @@ impl RouletteWheel {
         ];
         
         let colors = vec![
-            "verde", "rojo", "negro", "rojo", "negro", "rojo", "negro", "rojo", "negro", "rojo",
-            "negro", "rojo", "negro", "rojo", "negro", "rojo", "negro", "rojo", "negro", "rojo",
-            "negro", "rojo", "negro", "rojo", "negro", "rojo", "negro", "rojo", "negro", "rojo",
-            "negro", "rojo", "negro", "rojo", "negro", "rojo", "negro"
+            Color::Verde, Color::Rojo, Color::Negro, Color::Rojo, Color::Negro, Color::Rojo,
+            Color::Negro, Color::Rojo, Color::Negro, Color::Rojo, Color::Negro, Color::Rojo,
+            Color::Negro, Color::Rojo, Color::Negro, Color::Rojo, Color::Negro, Color::Rojo,
+            Color::Negro, Color::Rojo, Color::Negro, Color::Rojo, Color::Negro, Color::Rojo,
+            Color::Negro, Color::Rojo, Color::Negro, Color::Rojo, Color::Negro, Color::Rojo,
+            Color::Negro, Color::Rojo, Color::Negro, Color::Rojo, Color::Negro, Color::Rojo,
+            Color::Negro
         ];
         
         RouletteWheel { numbers, colors }
@@ -26,83 +46,22 @@ impl RouletteWheel {
         let mut rng = rand::thread_rng();
         let index = rng.gen_range(0..37);
         let number = self.numbers[index];
-        let color = self.colors[index];
+        let color = self.colors[index].clone();
         
         RouletteResult::new(number, color)
     }
     
-    pub fn get_number_color(&self, number: u32) -> Option<&str> {
+    pub fn get_number_color(&self, number: u32) -> Option<Color> {
         for i in 0..self.numbers.len() {
             if self.numbers[i] == number {
-                return Some(self.colors[i]);
+                return Some(self.colors[i].clone());
             }
         }
         None
     }
     
-    pub fn get_column(&self, number: u32) -> Option<u32> {
-        if number == 0 {
-            return None;
-        }
-        
-        let col = match number % 3 {
-            1 => 1,
-            2 => 2,
-            0 => 3,
-            _ => return None,
-        };
-        
-        Some(col)
-    }
-    
-    pub fn get_dozen(&self, number: u32) -> Option<u32> {
-        if number == 0 {
-            return None;
-        }
-        
-        match number {
-            1..=12 => Some(1),
-            13..=24 => Some(2),
-            25..=36 => Some(3),
-            _ => None,
-        }
-    }
-    
-    pub fn get_street(&self, number: u32) -> Option<u32> {
-        if number == 0 {
-            return None;
-        }
-        
-        Some((number - 1) / 3 + 1)
-    }
-    
-    pub fn numbers_in_street(&self, street: u32) -> Vec<u32> {
-        let start = (street - 1) * 3 + 1;
-        (start..start+3).collect()
-    }
-    
-    pub fn numbers_in_column(&self, column: u32) -> Vec<u32> {
-        let mut nums = Vec::new();
-        for i in 0..12 {
-            let num = column + (i * 3);
-            if num <= 36 {
-                nums.push(num);
-            }
-        }
-        nums
-    }
-    
-    pub fn numbers_in_dozen(&self, dozen: u32) -> Vec<u32> {
-        match dozen {
-            1 => (1..=12).collect(),
-            2 => (13..=24).collect(),
-            3 => (25..=36).collect(),
-            _ => Vec::new(),
-        }
-    }
-    
-    pub fn numbers_in_corner(&self, corner_num: u32) -> Vec<u32> {
-        match corner_num {
+    pub fn corner_numbers(corner: u32) -> Vec<u32> {
+        match corner {
             1 => vec![1, 2, 4, 5],
             2 => vec![2, 3, 5, 6],
             3 => vec![4, 5, 7, 8],
@@ -129,8 +88,8 @@ impl RouletteWheel {
         }
     }
     
-    pub fn numbers_in_sixline(&self, sixline_num: u32) -> Vec<u32> {
-        match sixline_num {
+    pub fn sixline_numbers(sixline: u32) -> Vec<u32> {
+        match sixline {
             1 => (1..=6).collect(),
             2 => (4..=9).collect(),
             3 => (7..=12).collect(),
@@ -149,15 +108,12 @@ impl RouletteWheel {
 
 pub struct RouletteResult {
     pub number: u32,
-    pub color: String,
+    pub color: Color,
 }
 
 impl RouletteResult {
-    pub fn new(number: u32, color: &str) -> Self {
-        RouletteResult {
-            number,
-            color: color.to_string(),
-        }
+    pub fn new(number: u32, color: Color) -> Self {
+        RouletteResult { number, color }
     }
     
     pub fn is_even(&self) -> bool {
@@ -176,7 +132,146 @@ impl RouletteResult {
         self.number >= 19 && self.number <= 36
     }
     
-    pub fn get_color(&self) -> &str {
+    pub fn get_color(&self) -> &Color {
         &self.color
+    }
+    
+    pub fn column(&self) -> Option<u32> {
+        if self.number == 0 {
+            None
+        } else {
+            Some(match self.number % 3 {
+                1 => 1,
+                2 => 2,
+                _ => 3,
+            })
+        }
+    }
+    
+    pub fn dozen(&self) -> Option<u32> {
+        if self.number == 0 {
+            None
+        } else {
+            Some(match self.number {
+                1..=12 => 1,
+                13..=24 => 2,
+                25..=36 => 3,
+                _ => unreachable!(),
+            })
+        }
+    }
+    
+    pub fn street(&self) -> Option<u32> {
+        if self.number == 0 {
+            None
+        } else {
+            Some((self.number - 1) / 3 + 1)
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    
+    #[test]
+    fn test_european_wheel_has_37_numbers() {
+        let wheel = RouletteWheel::new();
+        assert_eq!(wheel.numbers.len(), 37);
+        assert_eq!(wheel.colors.len(), 37);
+    }
+    
+    #[test]
+    fn test_zero_is_green() {
+        let wheel = RouletteWheel::new();
+        assert_eq!(wheel.get_number_color(0), Some(Color::Verde));
+    }
+    
+    #[test]
+    fn test_even_odd() {
+        let result = RouletteResult::new(10, Color::Negro);
+        assert!(result.is_even());
+        assert!(!result.is_odd());
+        
+        let result = RouletteResult::new(0, Color::Verde);
+        assert!(!result.is_even());
+        assert!(!result.is_odd());
+    }
+    
+    #[test]
+    fn test_low_high() {
+        let result = RouletteResult::new(1, Color::Rojo);
+        assert!(result.is_low());
+        assert!(!result.is_high());
+        
+        let result = RouletteResult::new(19, Color::Rojo);
+        assert!(!result.is_low());
+        assert!(result.is_high());
+        
+        let result = RouletteResult::new(0, Color::Verde);
+        assert!(!result.is_low());
+        assert!(!result.is_high());
+    }
+    
+    #[test]
+    fn test_column() {
+        let result = RouletteResult::new(1, Color::Rojo);
+        assert_eq!(result.column(), Some(1));
+        
+        let result = RouletteResult::new(2, Color::Negro);
+        assert_eq!(result.column(), Some(2));
+        
+        let result = RouletteResult::new(3, Color::Rojo);
+        assert_eq!(result.column(), Some(3));
+        
+        let result = RouletteResult::new(0, Color::Verde);
+        assert_eq!(result.column(), None);
+    }
+    
+    #[test]
+    fn test_dozen() {
+        let result = RouletteResult::new(5, Color::Rojo);
+        assert_eq!(result.dozen(), Some(1));
+        
+        let result = RouletteResult::new(20, Color::Negro);
+        assert_eq!(result.dozen(), Some(2));
+        
+        let result = RouletteResult::new(30, Color::Rojo);
+        assert_eq!(result.dozen(), Some(3));
+        
+        let result = RouletteResult::new(0, Color::Verde);
+        assert_eq!(result.dozen(), None);
+    }
+    
+    #[test]
+    fn test_street() {
+        let result = RouletteResult::new(1, Color::Rojo);
+        assert_eq!(result.street(), Some(1));
+        
+        let result = RouletteResult::new(3, Color::Rojo);
+        assert_eq!(result.street(), Some(1));
+        
+        let result = RouletteResult::new(4, Color::Negro);
+        assert_eq!(result.street(), Some(2));
+        
+        let result = RouletteResult::new(36, Color::Rojo);
+        assert_eq!(result.street(), Some(12));
+        
+        let result = RouletteResult::new(0, Color::Verde);
+        assert_eq!(result.street(), None);
+    }
+    
+    #[test]
+    fn test_corner_numbers() {
+        assert_eq!(RouletteWheel::corner_numbers(1), vec![1, 2, 4, 5]);
+        assert_eq!(RouletteWheel::corner_numbers(22), vec![32, 33, 35, 36]);
+        assert_eq!(RouletteWheel::corner_numbers(99), Vec::<u32>::new());
+    }
+    
+    #[test]
+    fn test_sixline_numbers() {
+        assert_eq!(RouletteWheel::sixline_numbers(1), vec![1, 2, 3, 4, 5, 6]);
+        assert_eq!(RouletteWheel::sixline_numbers(11), vec![31, 32, 33, 34, 35, 36]);
+        assert_eq!(RouletteWheel::sixline_numbers(99), Vec::<u32>::new());
     }
 }

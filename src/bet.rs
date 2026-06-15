@@ -1,4 +1,4 @@
-use crate::roulette::{RouletteWheel, RouletteResult};
+use crate::roulette::{RouletteResult, RouletteWheel, Color};
 
 pub struct Bet {
     pub amount: f64,
@@ -15,15 +15,15 @@ impl Bet {
         }
     }
     
-    pub fn calculate_win(&self, result: &RouletteResult) -> f64 {
-        if self.is_winner(result) {
+    pub fn calculate_win(&self, result: &RouletteResult, wheel: &RouletteWheel) -> f64 {
+        if self.is_winner(result, wheel) {
             self.amount * self.get_payout_multiplier()
         } else {
             0.0
         }
     }
     
-    fn is_winner(&self, result: &RouletteResult) -> bool {
+    fn is_winner(&self, result: &RouletteResult, wheel: &RouletteWheel) -> bool {
         match &self.bet_type {
             BetType::Straight => {
                 if let BetPlacement::Number(num) = self.placement {
@@ -76,13 +76,7 @@ impl Bet {
                     if result.number == 0 {
                         false
                     } else {
-                        let result_dozen = match result.number {
-                            1..=12 => 1,
-                            13..=24 => 2,
-                            25..=36 => 3,
-                            _ => 0,
-                        };
-                        result_dozen == *dozen
+                        result.dozen() == Some(*dozen)
                     }
                 } else {
                     false
@@ -93,13 +87,7 @@ impl Bet {
                     if result.number == 0 {
                         false
                     } else {
-                        let result_col = result.number % 3;
-                        match result_col {
-                            1 => *col == 1,
-                            2 => *col == 2,
-                            0 => *col == 3,
-                            _ => false,
-                        }
+                        result.column() == Some(*col)
                     }
                 } else {
                     false
@@ -110,8 +98,7 @@ impl Bet {
                     if result.number == 0 {
                         false
                     } else {
-                        let result_street = (result.number - 1) / 3 + 1;
-                        result_street == *street
+                        result.street() == Some(*street)
                     }
                 } else {
                     false
@@ -122,8 +109,7 @@ impl Bet {
                     if result.number == 0 {
                         false
                     } else {
-                        let wheel = RouletteWheel::new();
-                        let numbers = wheel.numbers_in_corner(*corner_num);
+                        let numbers = RouletteWheel::corner_numbers(*corner_num);
                         numbers.contains(&result.number)
                     }
                 } else {
@@ -135,8 +121,7 @@ impl Bet {
                     if result.number == 0 {
                         false
                     } else {
-                        let wheel = RouletteWheel::new();
-                        let numbers = wheel.numbers_in_sixline(*sixline_num);
+                        let numbers = RouletteWheel::sixline_numbers(*sixline_num);
                         numbers.contains(&result.number)
                     }
                 } else {
@@ -177,7 +162,7 @@ pub enum BetType {
 #[derive(Clone)]
 pub enum BetPlacement {
     Number(u32),
-    Color(String),
+    Color(Color),
     EvenOdd(EvenOddChoice),
     LowHigh(LowHighChoice),
     Dozen(u32),
@@ -197,4 +182,157 @@ pub enum EvenOddChoice {
 pub enum LowHighChoice {
     Low,
     High,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::roulette::{RouletteResult, Color, RouletteWheel};
+    
+    fn create_test_wheel() -> RouletteWheel {
+        RouletteWheel::new()
+    }
+    
+    #[test]
+    fn test_straight_win_pays_35_to_1() {
+        let bet = Bet::new(10.0, BetType::Straight, BetPlacement::Number(7));
+        let result = RouletteResult::new(7, Color::Rojo);
+        let wheel = create_test_wheel();
+        assert_eq!(bet.calculate_win(&result, &wheel), 350.0);
+    }
+    
+    #[test]
+    fn test_straight_loss_returns_zero() {
+        let bet = Bet::new(10.0, BetType::Straight, BetPlacement::Number(7));
+        let result = RouletteResult::new(15, Color::Negro);
+        let wheel = create_test_wheel();
+        assert_eq!(bet.calculate_win(&result, &wheel), 0.0);
+    }
+    
+    #[test]
+    fn test_zero_loses_all_even_money_bets() {
+        let result = RouletteResult::new(0, Color::Verde);
+        let wheel = create_test_wheel();
+        
+        let color_bet = Bet::new(10.0, BetType::Color, BetPlacement::Color(Color::Rojo));
+        assert_eq!(color_bet.calculate_win(&result, &wheel), 0.0);
+        
+        let even_bet = Bet::new(10.0, BetType::EvenOdd, BetPlacement::EvenOdd(EvenOddChoice::Even));
+        assert_eq!(even_bet.calculate_win(&result, &wheel), 0.0);
+        
+        let low_bet = Bet::new(10.0, BetType::LowHigh, BetPlacement::LowHigh(LowHighChoice::Low));
+        assert_eq!(low_bet.calculate_win(&result, &wheel), 0.0);
+    }
+    
+    #[test]
+    fn test_color_bet_wins() {
+        let result = RouletteResult::new(1, Color::Rojo);
+        let wheel = create_test_wheel();
+        let bet = Bet::new(10.0, BetType::Color, BetPlacement::Color(Color::Rojo));
+        assert_eq!(bet.calculate_win(&result, &wheel), 20.0);
+    }
+    
+    #[test]
+    fn test_color_bet_loses() {
+        let result = RouletteResult::new(1, Color::Rojo);
+        let wheel = create_test_wheel();
+        let bet = Bet::new(10.0, BetType::Color, BetPlacement::Color(Color::Negro));
+        assert_eq!(bet.calculate_win(&result, &wheel), 0.0);
+    }
+    
+    #[test]
+    fn test_even_bet_wins() {
+        let result = RouletteResult::new(2, Color::Negro);
+        let wheel = create_test_wheel();
+        let bet = Bet::new(10.0, BetType::EvenOdd, BetPlacement::EvenOdd(EvenOddChoice::Even));
+        assert_eq!(bet.calculate_win(&result, &wheel), 20.0);
+    }
+    
+    #[test]
+    fn test_odd_bet_wins() {
+        let result = RouletteResult::new(3, Color::Rojo);
+        let wheel = create_test_wheel();
+        let bet = Bet::new(10.0, BetType::EvenOdd, BetPlacement::EvenOdd(EvenOddChoice::Odd));
+        assert_eq!(bet.calculate_win(&result, &wheel), 20.0);
+    }
+    
+    #[test]
+    fn test_low_bet_wins() {
+        let result = RouletteResult::new(10, Color::Negro);
+        let wheel = create_test_wheel();
+        let bet = Bet::new(10.0, BetType::LowHigh, BetPlacement::LowHigh(LowHighChoice::Low));
+        assert_eq!(bet.calculate_win(&result, &wheel), 20.0);
+    }
+    
+    #[test]
+    fn test_high_bet_wins() {
+        let result = RouletteResult::new(25, Color::Rojo);
+        let wheel = create_test_wheel();
+        let bet = Bet::new(10.0, BetType::LowHigh, BetPlacement::LowHigh(LowHighChoice::High));
+        assert_eq!(bet.calculate_win(&result, &wheel), 20.0);
+    }
+    
+    #[test]
+    fn test_dozen_bet_wins() {
+        let result = RouletteResult::new(15, Color::Negro);
+        let wheel = create_test_wheel();
+        let bet = Bet::new(10.0, BetType::Dozen, BetPlacement::Dozen(2));
+        assert_eq!(bet.calculate_win(&result, &wheel), 30.0);
+    }
+    
+    #[test]
+    fn test_column_bet_wins() {
+        let result = RouletteResult::new(2, Color::Negro);
+        let wheel = create_test_wheel();
+        let bet = Bet::new(10.0, BetType::Column, BetPlacement::Column(2));
+        assert_eq!(bet.calculate_win(&result, &wheel), 30.0);
+    }
+    
+    #[test]
+    fn test_street_bet_wins() {
+        let result = RouletteResult::new(4, Color::Negro);
+        let wheel = create_test_wheel();
+        let bet = Bet::new(10.0, BetType::Street, BetPlacement::Street(2));
+        assert_eq!(bet.calculate_win(&result, &wheel), 120.0);
+    }
+    
+    #[test]
+    fn test_corner_bet_wins() {
+        let result = RouletteResult::new(5, Color::Rojo);
+        let wheel = create_test_wheel();
+        let bet = Bet::new(10.0, BetType::Corner, BetPlacement::Corner(1));
+        assert_eq!(bet.calculate_win(&result, &wheel), 90.0);
+    }
+    
+    #[test]
+    fn test_sixline_bet_wins() {
+        let result = RouletteResult::new(5, Color::Rojo);
+        let wheel = create_test_wheel();
+        let bet = Bet::new(10.0, BetType::SixLine, BetPlacement::SixLine(1));
+        assert_eq!(bet.calculate_win(&result, &wheel), 60.0);
+    }
+    
+    #[test]
+    fn test_payout_multipliers() {
+        let wheel = create_test_wheel();
+        let result = RouletteResult::new(10, Color::Negro);
+        
+        let straight_bet = Bet::new(1.0, BetType::Straight, BetPlacement::Number(10));
+        assert_eq!(straight_bet.calculate_win(&result, &wheel), 35.0);
+        
+        let color_bet = Bet::new(1.0, BetType::Color, BetPlacement::Color(Color::Negro));
+        assert_eq!(color_bet.calculate_win(&result, &wheel), 2.0);
+        
+        let dozen_bet = Bet::new(1.0, BetType::Dozen, BetPlacement::Dozen(1));
+        assert_eq!(dozen_bet.calculate_win(&result, &wheel), 3.0);
+        
+        let street_bet = Bet::new(1.0, BetType::Street, BetPlacement::Street(4));
+        assert_eq!(street_bet.calculate_win(&result, &wheel), 12.0);
+        
+        let corner_bet = Bet::new(1.0, BetType::Corner, BetPlacement::Corner(3));
+        assert_eq!(corner_bet.calculate_win(&result, &wheel), 9.0);
+        
+        let sixline_bet = Bet::new(1.0, BetType::SixLine, BetPlacement::SixLine(2));
+        assert_eq!(sixline_bet.calculate_win(&result, &wheel), 6.0);
+    }
 }
