@@ -70,6 +70,9 @@ pub fn show_main_menu() -> u32 {
 }
 
 pub fn get_bet_amount(player: &Player) -> f64 {
+    if player.get_balance() < 1.0 {
+        return 0.0;
+    }
     loop {
         print!("Monto a apostar (min 1, max {:.2}): $", player.get_balance());
         let _ = io::stdout().flush();

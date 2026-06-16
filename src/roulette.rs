@@ -51,15 +51,6 @@ impl RouletteWheel {
         RouletteResult::new(number, color)
     }
     
-    pub fn get_number_color(&self, number: u32) -> Option<Color> {
-        for i in 0..self.numbers.len() {
-            if self.numbers[i] == number {
-                return Some(self.colors[i].clone());
-            }
-        }
-        None
-    }
-    
     pub fn corner_numbers(corner: u32) -> Vec<u32> {
         match corner {
             1 => vec![1, 2, 4, 5],
@@ -117,11 +108,11 @@ impl RouletteResult {
     }
     
     pub fn is_even(&self) -> bool {
-        self.number != 0 && self.number % 2 == 0
+        self.number != 0 && self.number.is_multiple_of(2)
     }
     
     pub fn is_odd(&self) -> bool {
-        self.number != 0 && self.number % 2 != 0
+        self.number != 0 && !self.number.is_multiple_of(2)
     }
     
     pub fn is_low(&self) -> bool {
@@ -179,12 +170,6 @@ mod tests {
         let wheel = RouletteWheel::new();
         assert_eq!(wheel.numbers.len(), 37);
         assert_eq!(wheel.colors.len(), 37);
-    }
-    
-    #[test]
-    fn test_zero_is_green() {
-        let wheel = RouletteWheel::new();
-        assert_eq!(wheel.get_number_color(0), Some(Color::Verde));
     }
     
     #[test]

@@ -15,6 +15,15 @@ fn main() {
         ui::clear_screen();
         ui::show_header(&player);
         
+        if player.get_balance() <= 0.0 {
+            ui::show_message("Te has quedado sin saldo!", "morado");
+            ui::show_message("Presiona Enter para reiniciar tu saldo o selecciona 0 para salir.", "amarillo");
+            ui::wait_for_enter();
+            player.reset_balance();
+            player.save();
+            continue;
+        }
+        
         let choice = ui::show_main_menu();
         
         if choice == 0 {
@@ -69,11 +78,11 @@ fn main() {
         
         let result = roulette.spin();
         
-        let win_amount = bet.calculate_win(&result, &roulette);
+        let payout = bet.calculate_win(&result);
         
-        if win_amount > 0.0 {
-            player.add_winnings(win_amount);
-            ui::show_win(&result, win_amount);
+        if payout > 0.0 {
+            player.add_winnings(payout);
+            ui::show_win(&result, payout);
         } else {
             ui::show_loss(&result);
         }
